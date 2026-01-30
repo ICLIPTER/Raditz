@@ -7,9 +7,9 @@ import {
   XIcon,
 } from "lucide-react";
 import { GhostButton, PrimaryButton } from "./Buttons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { assets } from "../assets/assets";
 import {
   SignedIn,
@@ -18,13 +18,23 @@ import {
   ClerkLoading,
   UserButton,
   useClerk,
+  useAuth,
+  useUser,
 } from "@clerk/clerk-react";
+import api from "../configs/axios";
+import toast from "react-hot-toast";
+import axios from "axios";
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const { user } = useUser();
   const { openSignIn, openSignUp } = useClerk();
 
   const [isOpen, setIsOpen] = useState(false);
+
+  const [credits, setCredits] = useState(0);
+  const { pathname } = useLocation();
+  const { getToken } = useAuth();
 
   const navLinks = [
     { name: "Home", href: "/#" },
@@ -32,6 +42,34 @@ export default function Navbar() {
     { name: "Community", href: "/community" },
     { name: "Plans", href: "/plans" },
   ];
+
+  const getUserCredits = async () => {
+    try {
+      const token = await getToken();
+      const { data } = await api.get("/api/user/credits", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setCredits(data.credits);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || error.message);
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Something went wrong");
+      }
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      (async () => await getUserCredits())();
+    }
+  }, [user, pathname]);
 
   return (
     <motion.nav
@@ -90,7 +128,7 @@ export default function Navbar() {
                   onClick={() => navigate("/plans")}
                   className="border-none text-gray-300 sm:py-1.5"
                 >
-                  Credits:
+                  Credits: {credits}
                 </GhostButton>
 
                 <UserButton>
@@ -132,12 +170,20 @@ export default function Navbar() {
         ))}
 
         <button
-          onClick={() => {setIsOpen(false); openSignIn()}}
+          onClick={() => {
+            setIsOpen(false);
+            openSignIn();
+          }}
           className="font-medium text-gray-300 hover:text-white transition"
         >
           Sign in
         </button>
-        <PrimaryButton onClick={() => {setIsOpen(false); openSignUp()}}>
+        <PrimaryButton
+          onClick={() => {
+            setIsOpen(false);
+            openSignUp();
+          }}
+        >
           Get Started
         </PrimaryButton>
 

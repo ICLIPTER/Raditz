@@ -1,6 +1,6 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState } from "react";
 import type { project } from "../types";
-import { dummyGenerations } from "../assets/assets";
 import {
   ImageIcon,
   Loader2Icon,
@@ -8,29 +8,80 @@ import {
   SparkleIcon,
   VideoIcon,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { GhostButton, PrimaryButton } from "../components/Buttons";
+import { useAuth, useUser } from "@clerk/clerk-react";
+import api from "../configs/axios";
+import toast from "react-hot-toast";
+import { handleApiError } from "../utils/handleApiError";
 
 const Result = () => {
+  const { projectId } = useParams();
+  const { getToken } = useAuth();
+  const { user, isLoaded } = useUser();
+  const navigate = useNavigate();
+
   const [project, setProjectData] = useState<project>({} as project);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const fetchProjectData = async () => {
-    setTimeout(() => {
-      setProjectData(dummyGenerations[0]);
+    try {
+      const token = await getToken();
+      const { data } = await api.get(`/api/user/projects/${projectId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setProjectData(data.project);
+      setIsGenerating(data.project.isGenerating);
       setLoading(false);
-    }, 3000);
+    } catch (error) {
+      handleApiError(error);
+    }
   };
 
-  const handleGenerateVideo = () => {
+  const handleGenerateVideo = async () => {
     setIsGenerating(true);
 
-  }
+    try {
+      const token = await getToken();
+
+      const { data } = await api.post(
+        "/api/project/video",
+        { projectId },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      setProjectData((prev) => ({
+        ...prev,
+        generatedVideo: data.videoUrl,
+      }));
+
+      toast.success(data.message);
+      setIsGenerating(false);
+    } catch (error) {
+      handleApiError(error);
+    }
+  };
 
   useEffect(() => {
-    fetchProjectData();
-  }, []);
+    if (user && !project.id) {
+      fetchProjectData();
+    } else if (isLoaded && !user) {
+      navigate("/");
+    }
+  }, [user]);
+
+  //fetch project every 10 seconds
+  useEffect(() => {
+    if (user && isGenerating) {
+      const interval = setInterval(() => {
+        fetchProjectData();
+      }, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [user, isGenerating]);
 
   return loading ? (
     <div className="h-screen w-full flex items-center justify-center">
@@ -120,7 +171,11 @@ const Result = () => {
                 Turn this static image into a dynamic video for social media
               </p>
               {!project.generatedVideo ? (
-                <PrimaryButton onClick={handleGenerateVideo} disabled={isGenerating} className="w-full">
+                <PrimaryButton
+                  onClick={handleGenerateVideo}
+                  disabled={isGenerating}
+                  className="w-full"
+                >
                   {isGenerating ? (
                     <>
                       <Loader2Icon className="size-5 animate-spin" />
@@ -132,9 +187,11 @@ const Result = () => {
                       Generate Video
                     </>
                   )}
-                  </PrimaryButton>
+                </PrimaryButton>
               ) : (
-                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-2xl text-green-400 text-center text-sm font-medium">Video Generated Successfully</div>
+                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-2xl text-green-400 text-center text-sm font-medium">
+                  Video Generated Successfully
+                </div>
               )}
             </div>
           </div>
