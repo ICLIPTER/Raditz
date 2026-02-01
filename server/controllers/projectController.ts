@@ -144,7 +144,6 @@ export const createProject = async (req: Request, res: Response) => {
       ],
     };
 
-
     const contents = [
       loadImageAsBase64(productImage.path, productImage.mimetype),
       loadImageAsBase64(modelImage.path, modelImage.mimetype),
@@ -154,7 +153,7 @@ export const createProject = async (req: Request, res: Response) => {
     ];
 
     const aiResponse: any = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-image",
+      model: "gemini-2.5-flash-image",
       contents,
       config: generationConfig,
     });
@@ -207,7 +206,6 @@ export const createProject = async (req: Request, res: Response) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 /* ------------------------------ create video ---------------------------------- */
 
